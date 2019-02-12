@@ -324,6 +324,33 @@ def pixelcnn_made(hidden_size=128):
     return features_ph, labels_ph, probs, loss, train_op
 
 
+def made_block(original_features, pixel_features, hidden_size=128):
+    # original features size: Batch_size * 28 * 28 * 3
+    # color feature size: Batch_size * 28 * 28 * hidden_size
+
+    # one_hot_features size: Batch_size * 28 * 28 * 3 * 4
+    one_hot_features = tf.one_hot(tf.cast(original_features, dtype=tf.int64),
+                                  depth=4, dtype=tf.float32)
+    one_hot_red = one_hot_features[:, :, :, 0, :]
+    one_hot_green = one_hot_features[:, :, :, 1, :]
+
+    # RED: no dependency from other pixels
+    red_layer_1 = tf.layers.dense(pixel_features, hidden_size, activation=tf.nn.relu)
+    red_logits = tf.layers.dense(red_layer_1, 4, activation=None, use_bias=False)
+
+    # GREEN: dependency from RED pixel
+    green_input_features = tf.concat([pixel_features, one_hot_red], axis=-1)
+    green_layer_1 = tf.layers.dense(green_input_features, hidden_size, activation=tf.nn.relu)
+    green_logits = tf.layers.dense(green_layer_1, 4, activation=None, use_bias=False)
+
+    # BLUE: dependency from RED and GREEN pixel
+    blue_input_features = tf.concat([pixel_features, one_hot_red, one_hot_green], axis=-1)
+    blue_layer_1 = tf.layers.dense(blue_input_features, hidden_size, activation=tf.nn.relu)
+    blue_logits = tf.layers.dense(blue_layer_1, 4, activation=None, use_bias=False)
+
+    return red_logits, green_logits, blue_logits
+
+
 def rescale_img(img):
     return ((img - np.min(img))/(np.max(img) - np.min(img)) * 255).astype(int)
 
